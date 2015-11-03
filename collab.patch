@@ -1,0 +1,904 @@
+diff --git a/collab.js b/collab.js
+index 0555d5c..87bc080 100644
+--- a/collab.js
++++ b/collab.js
+@@ -78,6 +78,7 @@ define(function(require, exports, module) {
+             fs.on("beforeWriteFile", beforeWriteFile, plugin);
+ 
+             ace.on("initAceSession", function(e) {
++                console.debug('initAceSession', e);
+                 var doc = e.doc;
+                 var path = doc.tab.path;
+                 var otDoc = documents[path];
+@@ -86,6 +87,7 @@ define(function(require, exports, module) {
+             });
+ 
+             tabs.on("focusSync", function(e){
++                console.debug('focusSync', e);
+                 var tab = e.tab;
+                 var otDoc = documents[tab.path];
+                 if (otDoc && !otDoc.session) {
+@@ -96,6 +98,7 @@ define(function(require, exports, module) {
+             });
+             
+             tabs.on("focus", function(e){
++                console.debug('focus', e);
+                 var tab = e.tab;
+                 if (tab && tab.editor) {
+                     var id = getTabId(tab);
+@@ -109,12 +112,14 @@ define(function(require, exports, module) {
+             });
+             
+             plugin.on("userMessage", function(e) {
++                console.debug('userMessage', e);
+                 if (e.action == "focus") {
+                     workspace.updateOpenDocs(e, "activate");
+                 }
+             });
+             
+             watcherGui.on("docChange", function (e) {
++                console.debug('docChange', e);
+                 var tab = e.tab;
+                 
+                 if (tab.editorType == "ace") {
+@@ -123,6 +128,7 @@ define(function(require, exports, module) {
+                         check is to avoid a race condition if collab updates before this function runs */
+                     if (!tab.meta.$lastCollabChange || tab.meta.$lastCollabChange < (Date.now() - 1000)) {
+                         if (tab.meta.$collabChangeRegistered) {
++                            console.debug('workaround for changess less than 1 sec ago');
+                             clearTimeout(tab.meta.$collabChangeRegistered);
+                         }
+                     }
+@@ -134,10 +140,12 @@ define(function(require, exports, module) {
+             ui.insertCss(css, staticPrefix, plugin);
+ 
+             window.addEventListener("unload", function() {
++                console.debug('unload');
+                 leaveAll();
+             }, false);
+             
+             tabs.on("open", function(e) {
++                console.debug('tab.open', e);
+                 var tab = e.tab;
+                 tab.on("setPath", function(e) {
+                     onSetPath(tab, e.oldpath, e.path);
+@@ -145,6 +153,7 @@ define(function(require, exports, module) {
+             });
+ 
+             tabs.on("tabDestroy", function(e) {
++                console.log('tabDestroy', e);
+                 leaveDocument(e.tab.path);
+             }, plugin);
+ 
+@@ -186,6 +195,7 @@ define(function(require, exports, module) {
+         }
+ 
+         function onDisconnect() {
++            console.debug('onDisconnect');
+             for (var docId in documents) {
+                 var doc = documents[docId];
+                 doc.disconnect();
+@@ -195,10 +205,12 @@ define(function(require, exports, module) {
+         }
+ 
+         function onConnecting () {
++            console.debug('onConnecting');
+             // bubbleNotification("Collab connecting");
+         }
+ 
+         function onConnectMsg(msg) {
++            console.debug('onConnectMsg', msg);
+             workspace.syncWorkspace(msg.data);
+ 
+             for (var docId in documents)
+@@ -209,6 +221,7 @@ define(function(require, exports, module) {
+         }
+ 
+         function onMessage(msg) {
++            console.debug('onMessage', msg);
+             var data = msg.data || {};
+             var user = data && data.userId && workspace.getUser(data.userId);
+             var type = msg.type;
+@@ -321,6 +334,7 @@ define(function(require, exports, module) {
+          * @param {Function} [progress]
+          */
+         function joinDocument(docId, doc, progress) {
++            console.debug('joinDocument', docId, doc);
+             console.log("[OT] Join", docId);
+             var docSession = doc.getSession();
+             var aceSession = docSession && docSession.session;
+@@ -355,6 +369,7 @@ define(function(require, exports, module) {
+         }
+ 
+         function leaveDocument(docId) {
++            console.debug('leaveDocument', docId);
+             if (!docId || !documents[docId] || !connect.connected)
+                 return;
+             console.log("[OT] Leave", docId);
+@@ -364,6 +379,7 @@ define(function(require, exports, module) {
+         }
+         
+         function reportLargeDocument(doc, forceReadonly) {
++            console.debug('reportLargeDocument', doc, forceReadonly);
+             var docId = doc.id;
+             delete documents[doc.id];
+             if (workspace.isAdmin && !forceReadonly) {
+@@ -382,6 +398,7 @@ define(function(require, exports, module) {
+         }
+ 
+         function saveDocument(docId, fallbackFn, fallbackArgs, callback) {
++            console.debug('saveDocument', docId);
+             var doc = documents[docId];
+             var joinError;
+             clearTimeout(saveFallbackTimeouts[docId]);
+@@ -425,6 +442,7 @@ define(function(require, exports, module) {
+             }
+             
+             function sendSaveError(attempt, message) {
++                console.debug('sendSaveError', message);
+                 errorHandler.reportError(new Error(message), {
+                     docId: docId,
+                     loading: doc && doc.loading,
+@@ -465,12 +483,14 @@ define(function(require, exports, module) {
+         }
+ 
+         function leaveAll() {
++            console.debug('leaveAll');
+             Object.keys(documents).forEach(function(docId) {
+                 leaveDocument(docId);
+             });
+         }
+ 
+         function refreshActiveDocuments() {
++            console.debug('refreshActiveDocument');
+             for (var docId in documents) {
+                 var doc = documents[docId];
+                 var tab = doc.original.tab;
+@@ -501,6 +521,7 @@ define(function(require, exports, module) {
+          * e.progress
+          */
+         function beforeReadFile(e) {
++            console.debug('beforeReadFile', e);
+             var path = e.path;
+             var progress = e.progress;
+             var callback = e.callback;
+@@ -566,6 +587,7 @@ define(function(require, exports, module) {
+          * Normalize tab contents after file read.
+          */
+         function afterReadFile(e) {
++            console.debug('afterReadFile', e);
+             var path = e.path;
+             var tab = tabs.findTab(path);
+             var doc = documents[path];
+@@ -582,6 +604,7 @@ define(function(require, exports, module) {
+          * Overrides the normal file writing behavior.
+          */
+         function beforeWriteFile(e) {
++            console.debug('beforeWriteFile', e);
+             var path = e.path;
+             var tab = tabs.findTab(path);
+             var doc = documents[path];
+@@ -602,6 +625,7 @@ define(function(require, exports, module) {
+         }
+ 
+         function onSetPath(tab, oldpath, path) {
++            console.debug('onSetPath', tab, oldpath, path);
+             console.log("[OT] detected rename/save as from", oldpath, "to", path);
+             leaveDocument(oldpath);
+             joinDocument(path, tab.document);
+@@ -629,6 +653,7 @@ define(function(require, exports, module) {
+         
+         /***** sync tabs *****/
+         function getTabState(tabId) {
++            console.debug('getTabState', tabId);
+             var tab;
+             if (tabId) {
+                 tabs.getTabs().some(function(t) {
+@@ -673,6 +698,7 @@ define(function(require, exports, module) {
+         
+         var lastJump;
+         function revealUser(clientId, tabId) {
++            console.debug('revealUser', clientId, tabId);
+             if (clientId == workspace.myClientId) {
+                 handleUserMessage({
+                     action: "open",
+@@ -690,6 +716,7 @@ define(function(require, exports, module) {
+         }
+         
+         function listOpenFiles(clientId) {
++            console.debug('listOpenFiles', clientId);
+             connect.send("MESSAGE", {
+                 source: workspace.myClientId,
+                 target: clientId,
+@@ -698,6 +725,7 @@ define(function(require, exports, module) {
+         }
+         
+         function handleUserMessage(data) {
++            console.debug('handleUserMessage', data);
+             if (data.action == "getTab") {
+                 if (data.target == workspace.myClientId) {
+                     connect.send("MESSAGE", {
+@@ -744,6 +772,7 @@ define(function(require, exports, module) {
+         }
+         
+         function shouldUpdateLastJump(prevState, state, newState) {
++            console.debug('shouldUpdateLastJump', prevState, state, newState);
+             function getSelection(s) {
+                 return s && s.document && s.document.ace && s.document.ace.selection;
+             }
+@@ -761,6 +790,7 @@ define(function(require, exports, module) {
+         }
+         
+         function scheduleUpdateUserBadges() {
++            console.debug('scheduleUpdateUserBadges');
+             if (scheduleUpdateUserBadges.timer) return;
+             scheduleUpdateUserBadges.timer = setTimeout(function() {
+                 scheduleUpdateUserBadges.timer = null;
+@@ -769,6 +799,7 @@ define(function(require, exports, module) {
+         }
+         
+         function updateUserBadges() {
++            console.debug('updateUserBadges');
+             var users = workspace.users;
+             var myId = workspace.myUserId;
+             Object.keys(users).forEach(function(id) {
+diff --git a/connect.js b/connect.js
+index abe000c..3557f21 100644
+--- a/connect.js
++++ b/connect.js
+@@ -109,7 +109,8 @@ define(function(require, exports, module) {
+             if (extended)
+                 return plugin.once("available", callback);
+             extended = true;
+-            
++
++            console.debug('startingCollab');
+             ext.loadRemotePlugin("collab", {
+                 file: "c9.ide.collab/server/collab-server.js"
+             }, function(err, api) {
+@@ -117,6 +118,7 @@ define(function(require, exports, module) {
+                     extended = false;
+                     return callback(err);
+                 }
++                console.debug('collabStarted');
+                 if (debug)
+                     console.log("loaded collab server in ", Date.now() - t, "ms");
+                 collab = api;
+@@ -127,6 +129,7 @@ define(function(require, exports, module) {
+         }
+ 
+         function onDisconnect() {
++            console.debug('connect.onDisconnect');
+             if (connected || connecting)
+                 emit("disconnect");
+             else
+@@ -144,6 +147,7 @@ define(function(require, exports, module) {
+         /***** Methods *****/
+ 
+         function connect() {
++            console.debug('connect.connect');
+             if (fatalError)
+                 return;
+             
+@@ -181,6 +185,7 @@ define(function(require, exports, module) {
+         }
+ 
+         function doConnect() {
++            console.debug('connect.doConnect');
+             // socket.id
+             clientId = vfs.id;
+             collab.connect({
+@@ -195,6 +200,8 @@ define(function(require, exports, module) {
+                     return;
+                 }
+ 
++                console.debug('connect.connected');
++                
+                 stream = meta.stream;
+                 var isClosed = false;
+ 
+@@ -216,6 +223,7 @@ define(function(require, exports, module) {
+                     emit("message", data);
+                 }
+                 function onConnect(data) {
++                    console.debug('onConnect', data);
+                     if (isClosed || !collab)
+                         return onClose();
+                     data = JSON.parse(data);
+@@ -250,6 +258,7 @@ define(function(require, exports, module) {
+         }
+ 
+         function send(msg) {
++            console.debug('send', msg);
+             if (typeof arguments[0] !== "object")
+                 msg = {type: arguments[0], data: arguments[1]};
+             if (!connected)
+@@ -368,4 +377,4 @@ define(function(require, exports, module) {
+             "collab.connect": plugin
+         });
+     }
+-});
+\ No newline at end of file
++});
+diff --git a/server/collab-server.js b/server/collab-server.js
+index 7ef20c3..1fb7f14 100644
+--- a/server/collab-server.js
++++ b/server/collab-server.js
+@@ -34,6 +34,10 @@ var nodePath = getHomeDir() + "/.c9/node_modules";
+ 
+ var debug = false;
+ 
++function log() {
++    console.log.apply(console, [new Date().toLocaleTimeString()].concat(Array.prototype.slice.call(arguments)));
++}
++
+ function getHomeDir() {
+     return process.env.OPENSHIFT_DATA_DIR || process.env.HOME;
+ }
+@@ -49,6 +53,7 @@ function getProjectWD() {
+  * npm: sqlite3 & sequelize
+  */
+ function installServer(callback) {
++    log('installServer');
+     function checkInstalled(root) {
+         try {
+             require(root + "sqlite3");
+@@ -60,6 +65,7 @@ function installServer(callback) {
+         }
+     }
+     if (!Sequelize && !checkInstalled(nodePath + "/") && !checkInstalled("")) {
++        log('serverIsNotInstalled');
+         var err = new Error("[vfs-collab] Couldn't load node modules sqlite3 and sequelize "
+             + "from " + nodePath + " "
+             + "node version: " + process.version + "; "
+@@ -89,6 +95,7 @@ function checkDBCorruption (err, callback) {
+     if (!err || !isMaster) {
+         return callback();
+     }
++    log('checkDBCorruption', err);
+     
+     var errMessage = err && err.message ? " " + err.message : "";
+     
+@@ -136,6 +143,7 @@ function checkDBCorruption (err, callback) {
+ }
+ 
+ function connectToDB() {
++    log('connectToDB');
+     var MAX_LOG_LINE_LENGTH = 151;
+ 
+     dbFilePath = dbFilePath || Path.join(getProjectWD(), "collab.db");
+@@ -196,6 +204,7 @@ function connectToDB() {
+  * @param {Function} callback
+  */
+ function initDB(readonly, callback) {
++    log('initDB', readonly);
+     var sequelize = connectToDB();
+ 
+     Store.User = User = sequelize.define("User", {
+@@ -328,6 +337,7 @@ function initDB(readonly, callback) {
+     ], function(err) {
+         if (!err)
+             return callback();
++        log('dbInited');
+         console.error("[vfs-collab] initDB attempt failed:", err);
+         checkDBCorruption(err, callback);
+     });
+@@ -340,6 +350,7 @@ function initDB(readonly, callback) {
+ 
+ function resetDB(callback) {
+     if (resettingDatabase || !isMaster) return callback();
++    log('resetDB');
+     console.error("[vfs-collab] resetting collab database");
+     resettingDatabase = true;
+     Fs.rename(dbFilePath, dbFilePath + ".old", function (err) {
+@@ -368,6 +379,7 @@ var operations = (function() {
+  * @return {Operation} op
+  */
+ function operation(fromText, toText) {
++    log('operation');
+     var dmp = new diff_match_patch();
+     var diffs = dmp.diff_main(fromText, toText);
+     dmp.diff_cleanupSemantic(diffs);
+@@ -548,7 +560,8 @@ function OTError(expected, actual) {
+  * @param  {String} doc
+  * @return {String} newDoc
+  */
+- function applyContents(op, doc) {
++function applyContents(op, doc) {
++    log('applyContents', op);
+     var val, newDoc = "";
+     for (var i = 0, len = op.length; i < len; i += 1) {
+         val = op[i].slice(1);
+@@ -782,6 +795,7 @@ var Store = (function () {
+      * @param {Function} callback
+      */
+     function newDocument(tmpl, callback) {
++        log('newDocument');
+         var contents = tmpl.contents || "";
+         wrapSeq(Document.create({
+             contents: new Buffer(contents),
+@@ -819,6 +833,7 @@ var Store = (function () {
+     */
+ 
+     function parseDocument(doc) {
++        log('parseDocument');
+         if (doc.authAttribs)
+             doc.authAttribs = JSON.parse(doc.authAttribs);
+         if (doc.starRevNums)
+@@ -828,6 +843,7 @@ var Store = (function () {
+     }
+ 
+     function parseDocumentCallback(callback) {
++        log('parseDocumentCallback');
+         return function (err, doc) {
+             if (err || !doc)
+                 return callback(err);
+@@ -845,6 +861,7 @@ var Store = (function () {
+      * @param {Object} callback.result   The result, or null if getDocument() failed (might even though err is null)
+      */
+     function getDocument(path, attributes, callback) {
++        log('getDocument', path);
+         var query = { where: {path: getDocPath(path)} };
+         if (!callback) {
+             callback = attributes;
+@@ -864,6 +881,7 @@ var Store = (function () {
+      * @param {Function} callback
+      */
+     function getRevisions(doc, callback) {
++        log('getRevisions');
+         wrapSeq(doc.getRevisions(), function (err, revisions) {
+             if (err)
+                 return callback(err);
+@@ -876,6 +894,7 @@ var Store = (function () {
+      * @param [{Revision}] revisions
+      */
+     function parseRevisions(revisions) {
++        log('parseRevisions', revisions);
+         revisions.forEach(function (rev) {
+             // rev.operation can be a buffer and is always a stringified JSON array
+             rev.operation = JSON.parse(rev.operation.toString());
+@@ -887,6 +906,7 @@ var Store = (function () {
+     }
+ 
+     function prepareAttributes(doc, attributes) {
++        log('prepareAttributes');
+         var update = {};
+         for (var i = 0; i < attributes.length; i++)
+             update[attributes[i]] = doc[attributes[i]];
+@@ -899,6 +919,7 @@ var Store = (function () {
+      * @param {Function} callback
+      */
+     function saveDocument(doc, attributes, callback) {
++        log('saveDocument');
+         if (!callback) {
+             callback = attributes;
+             attributes = undefined;
+@@ -928,6 +949,7 @@ var Store = (function () {
+      * @param {Function} callback
+      */
+     function getWorkspaceState(callback) {
++        log('getWorkspaceState');
+         // the table has only a single entry
+         if (cachedWS)
+             return callback(null, cachedWS);
+@@ -947,6 +969,7 @@ var Store = (function () {
+      * @param {Function}  callback
+      */
+     function saveWorkspaceState(ws, callback) {
++        log('saveWorkspaceState');
+         var authorPool = ws.authorPool;
+         var colorPool = ws.colorPool;
+         ws.authorPool = JSON.stringify(authorPool);
+@@ -968,6 +991,7 @@ var Store = (function () {
+      * @param {Function} callback
+      */
+     function getUsers(callback) {
++        log('getUsers');
+         if (cachedUsers)
+             return callback(null, cachedUsers);
+         wrapSeq(User.all(), function (err, users) {
+@@ -983,6 +1007,7 @@ var Store = (function () {
+      * @param {Function} callback
+      */
+     function saveChatMessage(text, userId, callback) {
++        log('saveChatMessage', text, userId);
+         wrapSeq(ChatMessage.create({
+             text: text,
+             userId: userId
+@@ -995,6 +1020,7 @@ var Store = (function () {
+      * @param {Function} callback
+      */
+     function recentChatHistory(limit, callback) {
++        log('recentChatHistory', limit)
+         limit = limit || 100;
+         wrapSeq(ChatMessage.findAll({
+             order: 'timestamp DESC',
+@@ -1122,10 +1148,12 @@ function randomColor() {
+  * Send handshake CONNECT message to the user with the needed workspace info and chat history
+  */
+ function handleConnect(userIds, client) {
++    log('handleConnect', userIds);
+     var userId = userIds.userId;
+     var clientId = userIds.clientId;
+ 
+     function done(err) {
++        log('handleConnectDone');
+         if (!err)
+             return;
+         console.error(err);
+@@ -1176,6 +1204,7 @@ function handleConnect(userIds, client) {
+     }
+ 
+     function augmentWorkspaceInfo() {
++        log('augmentWorkspaceInfo');
+         Store.getWorkspaceState(function (err, ws) {
+             if (err)
+                 return done("[vfs-collab] augmentWorkspaceInfo " + String(err));
+@@ -1198,6 +1227,7 @@ function handleConnect(userIds, client) {
+     }
+ 
+     function doConnect(authorPool, colorPool) {
++        log('doConnect');
+         Store.getUsers(function (err, users) {
+             if (err)
+                 return done("[vfs-collab] getUsers " + String(err));
+@@ -1258,6 +1288,7 @@ function handleConnect(userIds, client) {
+             }, client);
+ 
+             Store.recentChatHistory(100, function (err, chatHistory) {
++                log('recentChatHistory');
+                 if (err)
+                     console.error("[vfs-collab] recentChatHistory", err);
+ 
+@@ -1301,6 +1332,7 @@ function collabWriteAccess(fs) {
+  * @param {Function}  callback
+  */
+ function applyOperation(userIds, docId, doc, op, callback) {
++    log('applyOperation');
+     userIds = userIds || {userId: 0};
+     var userId = userIds.userId;
+     Store.getWorkspaceState(function (err, ws) {
+@@ -1346,6 +1378,7 @@ function applyOperation(userIds, docId, doc, op, callback) {
+  * @param {Object} data    - the EDIT_UPDATE message data with the document id, revision number and applied operation
+  */
+ function handleEditUpdate(userIds, client, data) {
++    log('handleEditUpdate', userIds, data);
+     var docId = data.docId;
+     var clientId = userIds.clientId;
+     var newRev = data.revNum;
+@@ -1435,6 +1468,7 @@ function handleEditUpdate(userIds, client, data) {
+  * @param {Object} data    - the UPDATE_NL_CHAR message data with the document id, newLineChar
+  */
+ function handleUpdateNlChar(userIds, client, data) {
++    log('handleUpdateNlChar', userIds);
+     var docId = data.docId;
+     var newLineChar = data.newLineChar || "";
+ 
+@@ -1497,6 +1531,7 @@ function handleUpdateNlChar(userIds, client, data) {
+  * @param {Object} data    - the CHAT_MESSAGE data with the chat text
+  */
+ function handleChatMessage(userIds, client, data) {
++    log('handleChatMessage', userIds);
+     var text = data.text;
+     var userId = userIds.userId;
+ 
+@@ -1525,6 +1560,7 @@ function handleChatMessage(userIds, client, data) {
+  * @param {Object} data    - the CURSOR_UPDATE data with the document id and the user selection
+  */
+ function handleCursorUpdate(userIds, client, data) {
++    log('handleCursorUpdate', userIds);
+     var docId = data.docId;
+     var clientId = userIds.clientId;
+ 
+@@ -1549,6 +1585,7 @@ function handleCursorUpdate(userIds, client, data) {
+  * @param {String} docId   - the document id or path
+  */
+ function broadcast(message, sender, docId) {
++    log('broadcast', message, sender, docId);
+     var toClientIds = docId ? documents[docId] : clients;
+     var audienceNum = 0;
+     for (var clientId in toClientIds) {
+@@ -1575,9 +1612,11 @@ function getAbsolutePath(docId) {
+  * @param docId - the document id or path
+  */
+ function initVfsWatcher(docId) {
++    log('initVfsWatcher', docId);
+     var absPath = getAbsolutePath(docId);
+ 
+     function done(err) {
++        log('initVfsWatcherDone', docId);
+         if (err)
+             console.error("[vfs-collab] WATCH ERR:", docId, err);
+         unlock(docId);
+@@ -1633,6 +1672,7 @@ function initVfsWatcher(docId) {
+  * @param {Object} data    - the JOIN_DOC data with the document id
+  */
+ function handleJoinDocument(userIds, client, data) {
++    log('handleJoinDocument', userIds);
+     var docId = data.docId;
+     var clientId = userIds.clientId;
+     var userId = userIds.userId;
+@@ -1640,6 +1680,7 @@ function handleJoinDocument(userIds, client, data) {
+     console.error("[vfs-collab] User", userId, "trying to join document", docId);
+ 
+     function done(err) {
++        log('handleJoinDocumentDone');
+         if (err) {
+             console.error("[vfs-collab] handleJoinDocument ERR:", docId, err);
+             client.send({
+@@ -1781,6 +1822,7 @@ function detectNewLineChar(text) {
+  * @param {Function} callback
+  */
+ function syncDocument(docId, doc, callback) {
++    log('syncDocument', docId);
+     var file = getAbsolutePath(docId);
+     isBinaryFile(file, function (err, isBinary) {
+         if (err)
+@@ -1883,6 +1925,7 @@ function syncDocument(docId, doc, callback) {
+  * @param {Object} data    - the JOIN_DOC data with the document id
+  */
+ function handleGetRevisions(userIds, client, data) {
++    log('handleGetRevisions');
+     var docId = data.docId;
+ 
+     function done(err) {
+@@ -1937,11 +1980,13 @@ function handleGetRevisions(userIds, client, data) {
+  * @param {Object} data    - the SAVE_FILE data with the document id and wether to sielently save (with auto-save enabled) or star the save
+  */
+ function handleSaveFile(userIds, client, data) {
++    log('handleSaveFile');
+     var st = Date.now();
+     var docId = data.docId;
+     var userId = userIds.userId;
+ 
+     function done(err) {
++        log('handleSaveFileDone');
+         unlock(docId);
+         if (err) {
+             console.error("[vfs-collab] Failed to save file. docID: " + docId + " Err: ", err);
+@@ -2011,6 +2056,7 @@ function handleSaveFile(userIds, client, data) {
+  * @param {Function} callback
+  */
+ function doSaveDocument(docId, doc, userId, star, callback) {
++    log('doSaveDocument');
+     if (star && doc.starRevNums.indexOf(doc.revNum) === -1)
+         doc.starRevNums.push(doc.revNum);
+ 
+@@ -2041,6 +2087,7 @@ function doSaveDocument(docId, doc, userId, star, callback) {
+  * @param {Object} data    - the LEAVE_DOC data with the document id
+  */
+ function handleLeaveDocument(userIds, client, data) {
++    log('handleLeaveDocument');
+     var docId = data.docId;
+     var userId = userIds.userId;
+     var clientId = userIds.clientId;
+@@ -2074,6 +2121,7 @@ function handleLeaveDocument(userIds, client, data) {
+  * @param {Object} data    - the LEAVE_DOC data with the document id
+  */
+ function handleLargeDocument(userIds, client, data) {
++    log('handleLargeDocument');
+     var docId = data.docId;
+     var userId = userIds.userId;
+     var clientId = userIds.clientId;
+@@ -2101,6 +2149,7 @@ function handleLargeDocument(userIds, client, data) {
+  * @param {Object} data    - the JOIN_DOC data with the document id
+  */
+ function handleUserState(userIds, client, data) {
++    log('handleUserState');
+     var userId = userIds.userId;
+     var clientId = userIds.clientId;
+     console.error("[vfs-collab]", clientId, "is switching to", data.state);
+@@ -2132,6 +2181,7 @@ function handleUserState(userIds, client, data) {
+  * @param {Object} data    - either id: $id of the message to be deleted or clear: true to clear all of the chat history
+  */
+ function handleClearChat(userIds, client, data) {
++    log('handleClearChat');
+     console.error("[vfs-collab] Clear chat history: ", data.id, data.clear, userIds.fs);
+ 
+     if (!collabWriteAccess(userIds.fs))
+@@ -2164,6 +2214,7 @@ function handleClearChat(userIds, client, data) {
+  * @param {Object} data    - either id: $id of the message to be deleted or clear: true to clear all of the chat history
+  */
+ function broadcastUserMessage(userIds, client, data) {
++    log('broadcastUserMessage');
+     console.error("[vfs-collab] Clear chat history: ", data.id, data.clear, userIds.fs);
+ 
+     broadcast({
+@@ -2180,6 +2231,7 @@ function broadcastUserMessage(userIds, client, data) {
+  * @param {Object} data    - the SAVE_FILE data with the document id and wether to sielently save (with auto-save enabled) or star the save
+  */
+ function handleUserMessage(userIds, client, message) {
++    log('handleUserMessage', message);
+     var data = message.data || {};
+     var docId = data.docId || "";
+     if (docId[0] === "/")
+@@ -2235,6 +2287,7 @@ function handleUserMessage(userIds, client, message) {
+  * @param {Socket} client  - the just-connected collab client
+  */
+ function onConnect(userIds, client) {
++    log('onConnect');
+     var userId = userIds.userId;
+     var clientId = userIds.clientId;
+ 
+@@ -2277,6 +2330,7 @@ var compressTimers = {};
+  * @param {String} docId   - the document id or path
+  */
+ function closeDocument(docId) {
++    log('closeDocument', docId);
+     delete documents[docId];
+ 
+     if (compressTimers[docId])
+@@ -2306,6 +2360,7 @@ function closeDocument(docId) {
+  * @param {Function} callback
+  */
+ function compressDocument(docId, options, callback) {
++    log('compressDocument', docId);
+     if (documents[docId])
+         return;
+ 
+@@ -2510,7 +2565,9 @@ function compressDocument(docId, options, callback) {
+  * The net.Server is file-socket to allow multiple collab-enabled workspaces on SSH workspaces
+  */
+ function createServer() {
++    log('createServer');
+     var server = net.createServer(function(client) {
++        log('createServerDone');
+ 
+         // console.error("[vfs-collab] Client connected");
+         var userIds;
+@@ -2552,6 +2609,7 @@ function createServer() {
+         var buff = [];
+ 
+         function onData(data) {
++            log('onData');
+             data = data.toString();
+             var idx;
+             while (true) {
+@@ -2570,6 +2628,7 @@ function createServer() {
+         client.on("end", onClose);
+ 
+         function onClose() {
++            log('onClose');
+             if (isClosed)
+                 return;
+             isClosed = true;
+@@ -2589,6 +2648,7 @@ function createServer() {
+ 
+ 
+ function initSocket(userIds, callback) {
++    log('initSocket');
+     var projectWD = getProjectWD();
+     var server;
+ 
+@@ -2600,6 +2660,7 @@ function initSocket(userIds, callback) {
+     clientConnect();
+ 
+     function startServer() {
++        log('startServer');
+         server = createServer();
+         console.error("[vfs-collab] PID:", PID, "Socket:", sockPath,
+              "ClinetId:", userIds.clientId, " & UserId:", userIds.userId);
+@@ -2630,6 +2691,7 @@ function initSocket(userIds, callback) {
+                 });
+             },
+         ], function(err) {
++            log('startServerDone');
+             if (err)
+                 return callback(err);
+ 
+@@ -2684,6 +2746,7 @@ function initSocket(userIds, callback) {
+     // Connect to a collab client
+     // If this fails to connect or the socket file doesn't exist, we try to create the server first
+     function clientConnect() {
++        log('clientConnect');
+         var stream = new Stream();
+         stream.readable = true;
+ 
+diff --git a/workspace.js b/workspace.js
+index 29ee302..355bda6 100644
+--- a/workspace.js
++++ b/workspace.js
+@@ -36,6 +36,7 @@ define(function(require, exports, module) {
+             pubsub.on("message", function(message) {
+                 if (message.type != "collab")
+                     return;
++                console.debug('workspace.pubsub', message);
+                 console.log("PubSub collab API message", message);
+                 var action = message.action;
+                 var body = message.body;
+@@ -94,6 +95,7 @@ define(function(require, exports, module) {
+         /***** Register and define API *****/
+ 
+         function syncWorkspace(data) {
++            console.debug('syncWorkspace', data);
+             if (myClientId !== data.myClientId)
+                 myOldClientId = myClientId;
+             else
+@@ -115,6 +117,7 @@ define(function(require, exports, module) {
+         }
+ 
+         function leaveClient(uid, clientId) {
++            console.debug('leaveClient', uid, clientId);
+             var user = users[uid];
+             user.online = Math.max(user.online-1, 0);
+             if (!user.clients) user.clients = [];
+@@ -125,6 +128,7 @@ define(function(require, exports, module) {
+         }
+ 
+         function joinClient(user, clientId) {
++            console.debug('joinClient', user, clientId);
+             var uid = user.uid;
+             var authorId = user.author;
+             users[uid] = user;
+@@ -136,6 +140,7 @@ define(function(require, exports, module) {
+         }
+         
+         function updateOpenDocs(data, action) {
++            console.debug('updateOpenDocs', data, action);
+             var user = users[data.userId];
+             if (!user) return;
+             var client = user.clients[data.clientId];
+@@ -178,6 +183,7 @@ define(function(require, exports, module) {
+         }
+ 
+         function updateUserState(uid, state) {
++            console.debug('updateUserState', uid, state);
+             users[uid].state = state;
+             emit.sticky("sync");
+         }
+@@ -185,6 +191,7 @@ define(function(require, exports, module) {
+         var cachedMembers;
+         var cachedInfo;
+         function loadMembers(callback) {
++            console.debug('loadMembers');
+             if (cachedMembers) {
+                 return done(cachedMembers, cachedInfo);
+             }
+@@ -213,6 +220,7 @@ define(function(require, exports, module) {
+         }
+ 
+         function addMember(username, access, callback) {
++            console.debug('addMember', username, access);
+             api.collab.post("members/add", {
+                 body: {
+                     username: username,
+@@ -229,6 +237,7 @@ define(function(require, exports, module) {
+         }
+ 
+         function addCachedMember(member, next) {
++            console.debug('addCachedMember', member);
+             if (!cachedMembers)
+                 return console.warn("addCachedMember() - cachedMembers = null !");
+             cachedMembers = cachedMembers.filter(function (m) {
+@@ -240,6 +249,7 @@ define(function(require, exports, module) {
+         }
+ 
+         function removeMember(uid, callback) {
++            console.debug('removeMember', uid);
+             api.collab.delete("members/remove", {
+                 body: { uid : uid }
+             }, function (err, data, res) {
+@@ -251,6 +261,7 @@ define(function(require, exports, module) {
+         }
+         
+         function removeCachedMember(uid, next) {
++            console.debug('removeCachedMember', uid);
+             if (!cachedMembers)
+                 return console.warn("removeCachedMember() - cachedMembers = null !");
+             cachedMembers = cachedMembers.filter(function (member) {
+@@ -261,6 +272,7 @@ define(function(require, exports, module) {
+         }
+ 
+         function updateAccess(uid, acl, callback) {
++            console.debug('updateAccess', uid, acl);
+             api.collab.put("members/update_access", {
+                 body: {
+                     uid: uid,
+@@ -275,6 +287,7 @@ define(function(require, exports, module) {
+         }
+         
+         function updateCachedAccess(uid, acl, next) {
++            console.debug('updateCachedAccess', uid, acl);
+             if (!cachedMembers)
+                 return console.warn("updateCachedAccess() - cachedMembers = null !");
+             (cachedMembers.filter(function (member) {
